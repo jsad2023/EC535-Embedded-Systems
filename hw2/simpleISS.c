@@ -3,7 +3,7 @@
 
 #define LOCAL_MEMORY_SIZE 256
 #define MAIN_MEMORY_SIZE 256
-#define MAX_NO_INSTRUCTIONS
+#define MAX_NO_INSTRUCTIONS 1024
 
 // Defintions for CPU instructions
 
@@ -31,17 +31,17 @@ int main(int argc, char * argv[])
 {
 
 	FILE * restrict fptr; // file pointer for assembly input text file
-	struct instruction_t * instructions; // array for 
-	register unsigned int first_address = 0; // address of first instruction
-	register unsigned int PC; // our fake "program counter" register
-	register unsigned int count_executed_instructions = 0;
-	register unsigned int count_clock_cycles = 0;
-	register unsigned int count_hits_to_local_memory = 0;
-	register unsigned int count_memory_accesses = 0;
+	struct instruction_t  instructions[MAX_NO_INSTRUCTIONS]; // array for 
+	volatile register unsigned int first_address = 0; // address of first instruction
+	volatile register unsigned int PC; // our fake "program counter" register
+	volatile register unsigned int count_executed_instructions = 0;
+	volatile register unsigned int count_clock_cycles = 0;
+	volatile register unsigned int count_hits_to_local_memory = 0;
+	volatile register unsigned int count_memory_accesses = 0;
+	volatile unsigned char CMP_VAL = 0;
 	struct cache_entry_t cache[LOCAL_MEMORY_SIZE];
 	char registers[6]; // Array of registers
-	unsigned char CMP_VAL = 0;
-
+	unsigned int count_instructions = 0;
 	unsigned int i = 0;
 
 	if(argc != 2) {
@@ -61,27 +61,17 @@ int main(int argc, char * argv[])
 		cache[i].valid = 0;
 	}
 
-	// Extract number of instructions from assembly file
-	// Count number of lines
-	char line[256];
-	unsigned int count_instructions = 0;
-	while(fgets(line, sizeof(line), fptr)) {
-		++count_instructions;
-	}
-
-	// allocate array for instructions
-	instructions = (struct instruction_t * ) malloc(count_instructions * sizeof(struct instruction_t));
 
 	// Parse assembly file for instructions
-	rewind(fptr); // rewind file stream to beginning of file
+	char line[256];
+	i = 0;
 
-	for(i = 0; i < count_instructions; i++) {
+	while(fgets(line, sizeof(line), fptr)) {
 		unsigned int address;
 		unsigned int reg1;
 		unsigned int reg2;
 		int number;
-
-		fgets(line, sizeof(line), fptr); // read line from assembly file
+		++count_instructions;
 
 		// Mov Rn, <num>
 		if(sscanf(line, "%d MOV R%d, %d", &address, &reg1, &number) == 3) {
@@ -131,6 +121,7 @@ int main(int argc, char * argv[])
 		if(i == 0) {
 			first_address = address;
 		}
+		++i;
 	}
 
 
