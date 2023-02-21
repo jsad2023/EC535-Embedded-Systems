@@ -3,50 +3,28 @@
 
 #define LOCAL_MEMORY_SIZE 256
 #define MAIN_MEMORY_SIZE 256
+#define MAX_NO_INSTRUCTIONS
 
 // Defintions for CPU instructions
 
-volatile char registers[6]; // Array of registers
-volatile unsigned char CMP_VAL;
+typedef enum Operation {MOV, ADD_REG, ADD_NUM, CMP, JE, JMP, LD, ST} Operation;
 
-
-int  MOV(char operand1, char operand2);
-int  ADD_REG(char operand1, char operand2);
-int  ADD_NUM(char operand1, char operand2);
-int  CMP(char operand1, char operand2);
-int  JE(char operand1, char operand2);
-int  JMP(char operand1, char operand2);
-int  LD(char operand1, char operand2);
-int  ST(char operand1, char operand2);
-
-// Data structures      
-
-// typedef for opretaions
-typedef int (*Operation)(char operand1, char operand2);
 struct instruction_t {
 	char operand1;
 	char operand2;
-	Operation operation;
+	enum Operation operation;
 };
+
+
 
 struct cache_entry_t {
 	unsigned char valid : 1;
 	char data : 8;
 };
 
-volatile struct cache_entry_t cache[LOCAL_MEMORY_SIZE];
-volatile static unsigned int PC; // our fake "program counter" register
 
-// Statistics to track
-volatile static unsigned int count_executed_instructions = 0;
-volatile static unsigned int count_clock_cycles = 0;
-volatile static unsigned int count_hits_to_local_memory = 0;
-volatile static unsigned int count_memory_accesses = 0;
-
-// NOtes:
-/*
-We have to store every CPU instruction before executing them. (JMP/JE instructions may move PC forwards and backwards)
-*/
+// Notes:
+//We have to store every CPU instruction before executing them. (JMP/JE instructions may move PC forwards and backwards)
 
 
 int main(int argc, char * argv[])
@@ -55,6 +33,15 @@ int main(int argc, char * argv[])
 	FILE * restrict fptr; // file pointer for assembly input text file
 	struct instruction_t * instructions; // array for 
 	register unsigned int first_address = 0; // address of first instruction
+	register unsigned int PC; // our fake "program counter" register
+	register unsigned int count_executed_instructions = 0;
+	register unsigned int count_clock_cycles = 0;
+	register unsigned int count_hits_to_local_memory = 0;
+	register unsigned int count_memory_accesses = 0;
+	struct cache_entry_t cache[LOCAL_MEMORY_SIZE];
+	char registers[6]; // Array of registers
+	unsigned char CMP_VAL = 0;
+
 	unsigned int i = 0;
 
 	if(argc != 2) {
@@ -75,7 +62,6 @@ int main(int argc, char * argv[])
 	}
 
 	// Extract number of instructions from assembly file
-
 	// Count number of lines
 	char line[256];
 	unsigned int count_instructions = 0;
@@ -152,7 +138,71 @@ int main(int argc, char * argv[])
 	PC = first_address;
 	while(PC < first_address + count_instructions) {
 		struct instruction_t instr = instructions[PC - first_address]; // get instruction
-		count_clock_cycles += instr.operation(instr.operand1, instr.operand2); // Executre instruction
+		unsigned char mem_address;
+		switch(instr.operation) {
+			case MOV:
+				registers[(unsigned char)instr.operand1] = instr.operand2; 
+				++count_clock_cycles;
+				break;
+			case ADD_REG:
+				registers[(unsigned char)instr.operand1] += registers[(unsigned char)instr.operand2];
+				++count_clock_cycles;
+				break;
+			case ADD_NUM:
+				registers[(unsigned char)instr.operand1] += instr.operand2;
+				++count_clock_cycles;
+				break;
+			case CMP:
+				CMP_VAL = (registers[(unsigned char)instr.operand1] == registers[(unsigned char)instr.operand2]);
+				++count_clock_cycles;
+				break;
+			case JE:
+				if(CMP_VAL) {
+					PC = instr.operand1 - 1;
+				}
+				++count_clock_cycles;
+				break;
+			case JMP:
+				PC = instr.operand1 - 1;
+				++count_clock_cycles;
+				break;
+			case LD:
+				++count_memory_accesses;
+				mem_address = (unsigned char) registers[(unsigned char)instr.operand2];
+
+
+				// cache hit
+				if(cache[mem_address % 256].valid) {
+					++count_hits_to_local_memory;
+					registers[(unsigned char)instr.operand1] = cache[mem_address].data;
+					count_clock_cycles += 2;
+				// cache miss
+				} else {
+					cache[mem_address].valid = 1;
+					registers[(unsigned char)instr.operand1] = cache[mem_address].data;
+					count_clock_cycles += 45;
+				}
+
+				break;
+			case ST:
+				
+				++count_memory_accesses;
+				mem_address = (unsigned char) registers[(unsigned char)instr.operand1];
+
+				// cache hit
+				if(cache[mem_address % 256].valid) {
+					++count_hits_to_local_memory;
+					cache[mem_address].data = registers[(unsigned char)instr.operand2];
+					count_clock_cycles += 2;
+				} else {
+					cache[mem_address].valid = 1;
+					cache[mem_address].data = registers[(unsigned char)instr.operand2];
+					count_clock_cycles +=  45;
+				}
+
+				break;
+		}
+
 		++PC; // advance PC
 		++count_executed_instructions;
 	}
@@ -166,72 +216,3 @@ int main(int argc, char * argv[])
 	return 0;
 }
 
-
-int MOV(char operand1, char operand2) {
-    registers[(unsigned char)operand1] = operand2; 
-	return 1;
-}
-
-int ADD_REG(char operand1, char operand2) {
-    registers[(unsigned char)operand1] += registers[(unsigned char)operand2];
-	return 1;
-}
-
-int ADD_NUM(char operand1, char operand2) {
-    registers[(unsigned char) operand1] += operand2; 
-	return 1;
-}
-
-int CMP(char operand1, char operand2) {
-    CMP_VAL = (registers[(unsigned char)operand1] == registers[(unsigned char)operand2]);
-	return 1;
-}
-
-int JE(char operand1, char operand2) {
-	if(CMP_VAL) {
-		PC = operand1 - 1;
-	}
-	return 1;
-}
-
-int JMP(char operand1, char operand2) {
-	PC = operand1 - 1;
-	return 1;
-}
-
-
-int LD(char operand1, char operand2) {
-	
-	++count_memory_accesses;
-	unsigned char mem_address = (unsigned char) registers[(unsigned char)operand2];
-
-
-	// cache hit
-	if(cache[mem_address % 256].valid) {
-		++count_hits_to_local_memory;
-		registers[(unsigned char)operand1] = cache[mem_address].data;
-		return 2;
-	}
-
-	cache[mem_address].valid = 1;
-	registers[(unsigned char)operand1] = cache[mem_address].data;
-	return 45;
-}
-
-
-int ST(char operand1, char operand2) {
-
-	++count_memory_accesses;
-	unsigned char mem_address = (unsigned char) registers[(unsigned char)operand1];
-
-	// cache hit
-	if(cache[mem_address % 256].valid) {
-		++count_hits_to_local_memory;
-		cache[mem_address].data = registers[(unsigned char)operand2];
-		return 2;
-	}
-
-	cache[mem_address].valid = 1;
-	cache[mem_address].data = registers[(unsigned char)operand2];
-	return 45;
-}
