@@ -32,13 +32,13 @@ int main(int argc, char * argv[])
 
 	FILE * restrict fptr; // file pointer for assembly input text file
 	struct instruction_t  instructions[MAX_NO_INSTRUCTIONS]; // array for 
-	volatile register unsigned int first_address = 0; // address of first instruction
-	volatile register unsigned int PC; // our fake "program counter" register
-	volatile register unsigned int count_executed_instructions = 0;
-	volatile register unsigned int count_clock_cycles = 0;
-	volatile register unsigned int count_hits_to_local_memory = 0;
-	volatile register unsigned int count_memory_accesses = 0;
-	volatile unsigned char CMP_VAL = 0;
+	register unsigned int first_address = 0; // address of first instruction
+	register unsigned int PC; // our fake "program counter" register
+	register unsigned int count_executed_instructions = 0;
+	register unsigned int count_clock_cycles = 0;
+	register unsigned int count_hits_to_local_memory = 0;
+	register unsigned int count_memory_accesses = 0;
+	unsigned char CMP_VAL = 0;
 	struct cache_entry_t cache[LOCAL_MEMORY_SIZE];
 	char registers[6]; // Array of registers
 	unsigned int count_instructions = 0;
