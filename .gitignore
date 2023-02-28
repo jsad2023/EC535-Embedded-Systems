@@ -1,6 +1,4 @@
-hw1/*
-lab1/*
-tutorials/*
-.vscode/*
-demos/*
-in-class-exercises/*
+*
+!hw2/*
+!lab2/*
+!lab3/*

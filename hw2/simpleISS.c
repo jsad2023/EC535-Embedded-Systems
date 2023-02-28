@@ -22,6 +22,7 @@ struct cache_entry_t {
 	char data : 8;
 };
 
+struct cache_entry_t cache[LOCAL_MEMORY_SIZE];
 
 // Notes:
 //We have to store every CPU instruction before executing them. (JMP/JE instructions may move PC forwards and backwards)
@@ -39,7 +40,6 @@ int main(int argc, char * argv[])
 	register unsigned int count_hits_to_local_memory = 0;
 	register unsigned int count_memory_accesses = 0;
 	unsigned char CMP_VAL = 0;
-	struct cache_entry_t cache[LOCAL_MEMORY_SIZE];
 	char registers[6]; // Array of registers
 	unsigned int count_instructions = 0;
 	unsigned int i = 0;
@@ -163,17 +163,16 @@ int main(int argc, char * argv[])
 
 
 				// cache hit
-				if(cache[mem_address % 256].valid) {
+				if(cache[mem_address].valid) {
 					++count_hits_to_local_memory;
-					registers[(unsigned char)instr.operand1] = cache[mem_address].data;
 					count_clock_cycles += 2;
 				// cache miss
 				} else {
 					cache[mem_address].valid = 1;
-					registers[(unsigned char)instr.operand1] = cache[mem_address].data;
 					count_clock_cycles += 45;
 				}
 
+				registers[(unsigned char)instr.operand1] = cache[mem_address].data;
 				break;
 			case ST:
 				
@@ -181,15 +180,15 @@ int main(int argc, char * argv[])
 				mem_address = (unsigned char) registers[(unsigned char)instr.operand1];
 
 				// cache hit
-				if(cache[mem_address % 256].valid) {
+				if(cache[mem_address].valid) {
 					++count_hits_to_local_memory;
-					cache[mem_address].data = registers[(unsigned char)instr.operand2];
 					count_clock_cycles += 2;
 				} else {
 					cache[mem_address].valid = 1;
-					cache[mem_address].data = registers[(unsigned char)instr.operand2];
 					count_clock_cycles +=  45;
 				}
+
+				cache[mem_address].data = registers[(unsigned char)instr.operand2];
 
 				break;
 		}
